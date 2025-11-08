@@ -16,6 +16,9 @@ ADD build/root/*.sh /root/
 # add bash script to run app
 ADD run/nobody/*.sh /usr/local/bin/
 
+# add custom bootstrap + health scripts
+ADD scripts/*.sh /usr/local/bin/
+
 # add pre-configured config files for nobody
 ADD config/nobody/ /home/nobody/.build/
 
@@ -28,7 +31,8 @@ COPY build/rootfs /
 
 # make executable and run bash scripts to install app
 RUN chmod +x /root/*.sh && \
-	/bin/bash /root/install.sh "${RELEASETAG}" "${TARGETARCH}"
+	/bin/bash /root/install.sh "${RELEASETAG}" "${TARGETARCH}" && \
+	chmod +x /usr/local/bin/fs25-bootstrap.sh /usr/local/bin/fs25-healthcheck.sh
 
 # docker settings
 #################
@@ -48,5 +52,5 @@ ENV LANG=en_GB.UTF-8
 # set permissions
 #################
 
-# run script to set uid, gid and permissions
-CMD ["/bin/bash", "/usr/local/bin/init.sh"]
+# run script to set uid, gid and permissions via custom bootstrap
+CMD ["/usr/local/bin/fs25-bootstrap.sh"]
