@@ -106,11 +106,16 @@ echo "\${PGID}" > /root/pgid
 EOF
 
 # replace permissions placeholder string with contents of file (here doc)
-sed -i '/# PERMISSIONS_PLACEHOLDER/{
-    s/# PERMISSIONS_PLACEHOLDER//g
-    r /tmp/permissions_heredoc
-}' /usr/local/bin/init.sh
-rm /tmp/permissions_heredoc
+INIT_SCRIPT="/usr/local/bin/init.sh"
+if [[ -f "${INIT_SCRIPT}" ]]; then
+    sed -i '/# PERMISSIONS_PLACEHOLDER/{
+        s/# PERMISSIONS_PLACEHOLDER//g
+        r /tmp/permissions_heredoc
+    }' "${INIT_SCRIPT}"
+else
+    echo "[warn] ${INIT_SCRIPT} missing, skipping permissions injection"
+fi
+rm -f /tmp/permissions_heredoc
 
 # env vars
 ####
@@ -182,11 +187,15 @@ export APPLICATION="fs25server"
 EOF
 
 # replace env vars placeholder string with contents of file (here doc)
-sed -i '/# ENVVARS_PLACEHOLDER/{
-    s/# ENVVARS_PLACEHOLDER//g
-    r /tmp/envvars_heredoc
-}' /usr/local/bin/init.sh
-rm /tmp/envvars_heredoc
+if [[ -f "${INIT_SCRIPT}" ]]; then
+    sed -i '/# ENVVARS_PLACEHOLDER/{
+        s/# ENVVARS_PLACEHOLDER//g
+        r /tmp/envvars_heredoc
+    }' "${INIT_SCRIPT}"
+else
+    echo "[warn] ${INIT_SCRIPT} missing, skipping env var injection"
+fi
+rm -f /tmp/envvars_heredoc
 
 # cleanup
 cleanup.sh

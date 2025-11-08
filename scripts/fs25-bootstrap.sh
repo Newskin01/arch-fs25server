@@ -56,6 +56,13 @@ MEDIA
 
 ensure_opt_mount() {
   local target="/opt/fs25"
+
+  if ! touch /opt/.fs25_rw 2>/dev/null; then
+    log "/opt is read-only; using ${DATA_ROOT} directly"
+    return
+  fi
+  rm -f /opt/.fs25_rw
+
   if [[ -L "${target}" ]]; then
     local current
     current=$(readlink -f "${target}")
