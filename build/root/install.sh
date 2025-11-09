@@ -32,31 +32,6 @@ echo -e " \n\
 Include = /etc/pacman.d/mirrorlist \n\
 " >> /etc/pacman.conf
 
-# pacman packages
-####
-
-pacman -Sy
-
-# call pacman db and package updater script
-source upd.sh
-
-# define pacman packages
-pacman_packages="wine-staging samba exo garcon thunar xfce4-appfinder tumbler xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop xfwm4 xfwm4-themes"
-
-# install compiled packages using pacman
-if [[ ! -z "${pacman_packages}" ]]; then
-	pacman -S --needed $pacman_packages --noconfirm
-fi
-
-# aur packages
-####
-
-# define aur packages
-#aur_packages="legendary"
-
-## call aur install script (arch user repo)
-#source aur.sh
-
 # container perms
 ####
 

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Minimal ts implementation that prefixes each input line with a timestamp.
+# Supports common usage like: ts '%Y-%m-%d %H:%M:%.S'
+
+format="%Y-%m-%d %H:%M:%S"
+
+# Skip unsupported flags to avoid failure.
+while [[ "${1:-}" =~ ^- ]]; do
+  shift
+done
+
+if [[ -n "${1:-}" ]]; then
+  format="$1"
+  shift
+fi
+
+# moreutils ts accepts '%.S'; map to valid date token
+format="${format//%.S/%S}"
+
+while IFS= read -r line; do
+  printf "%s %s\n" "$(date +"$format")" "$line"
+done

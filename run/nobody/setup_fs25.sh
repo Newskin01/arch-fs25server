@@ -1,13 +1,19 @@
 #!/bin/bash
 
 # Path to the Farming Simulator executable
-FS25_EXEC="$HOME/.fs25server/drive_c/Program Files (x86)/Farming Simulator 2025/FarmingSimulator2025.exe"
+WINE_GAME_DIR="$HOME/.fs25server/drive_c/Program Files (x86)/Farming Simulator 2025"
+FS25_EXEC="${WINE_GAME_DIR}/FarmingSimulator2025.exe"
+# Base installation root (defaults to /opt/fs25 for upstream compatibility)
+FS25_BASE="${FS25_INSTALL_ROOT:-/opt/fs25}"
 # Path to the installer directory
-INSTALLER_PATH="/opt/fs25/installer/FarmingSimulator2025.exe"
+INSTALLER_PATH="${FS25_BASE}/installer/FarmingSimulator2025.exe"
 # Path to the dlc-installer directory
-DLC_DIR="/opt/fs25/dlc"
+DLC_DIR="${FS25_BASE}/dlc"
 # Path to the dlc-install directory
-PDLC_DIR="/opt/fs25/config/FarmingSimulator2025/pdlc/"
+PDLC_DIR="${FS25_BASE}/config/FarmingSimulator2025/pdlc/"
+CONFIG_HOST_DIR="${FS25_BASE}/config/FarmingSimulator2025"
+GAME_HOST_DIR="${FS25_BASE}/game/Farming Simulator 2025"
+WINE_DOCS_DIR="$HOME/.fs25server/drive_c/users/$USER/Documents/My Games/FarmingSimulator2025"
 # DLC Prefix
 DLC_PREFIX="FarmingSimulator25_"
 
@@ -19,6 +25,29 @@ export WINEDEBUG=-all
 export WINEPREFIX=~/.fs25server
 export WINEARCH=win64
 export USER=nobody
+
+ensure_symlink() {
+        local host="$1"
+        local guest="$2"
+        mkdir -p "$host"
+
+        if [[ -L "$guest" ]]; then
+                local target
+                target=$(readlink -f "$guest")
+                if [[ "$target" == "$host" ]]; then
+                        return
+                fi
+                rm -f "$guest"
+        elif [[ -d "$guest" ]]; then
+                if [[ -n "$(ls -A "$guest" 2>/dev/null)" ]]; then
+                        cp -a "$guest"/. "$host"/
+                fi
+                rm -rf "$guest"
+        fi
+
+        mkdir -p "$(dirname "$guest")"
+        ln -s "$host" "$guest"
+}
 
 # Debug info/warning/error color
 
@@ -37,7 +66,9 @@ else
 fi
 
 # Copy VERSION file before Update / Install -> fix Version to old error
-cp /opt/fs25/game/Farming\ Simulator\ 2025/VERSION /opt/fs25/config/FarmingSimulator2025/
+if [ -f "${GAME_HOST_DIR}/VERSION" ]; then
+        cp "${GAME_HOST_DIR}/VERSION" "${CONFIG_HOST_DIR}/" || true
+fi
 
 
 # Check DLCs (list what we found and what is installed)
@@ -103,7 +134,7 @@ if ((${#supported_names[@]})); then
   done
 fi
 
-if [ -f /opt/fs25/dlc/FarmingSimulator25_highlandsFishingPack*.exe ]; then
+if ls "${DLC_DIR}"/${DLC_PREFIX}highlandsFishingPack*.exe >/dev/null 2>&1; then
 	echo -e "${GREEN}INFO: Highlands Fishing Pack (ESD) SETUP FOUND!${NOCOLOR}"
 else
 	echo -e "${YELLOW}WARNING: Highlands Fishing Pack Setup not found, do you own it and does it exist in the dlc mount path?${NOCOLOR}"
@@ -112,39 +143,25 @@ fi
 
 # it's important to check if the config directory exists on the host mount path. If it doesn't exist, create it.
 
-if [ -d /opt/fs25/config/FarmingSimulator2025 ]; then
+if [ -d "${CONFIG_HOST_DIR}" ]; then
         echo -e "${GREEN}INFO: The host config directory exists, no need to create it!${NOCOLOR}"
 else
-        mkdir -p /opt/fs25/config/FarmingSimulator2025
+        mkdir -p "${CONFIG_HOST_DIR}"
 
 fi
 
 # it's important to check if the game directory exists on the host mount path. If it doesn't exist, create it.
 
-if [ -d /opt/fs25/game/Farming\ Simulator\ 2025 ]; then
+if [ -d "${GAME_HOST_DIR}" ]; then
         echo -e "${GREEN}INFO: The host game directory exists, no need to create it!${NOCOLOR}"
 else
-        mkdir -p /opt/fs25/game/Farming\ Simulator\ 2025
+        mkdir -p "${GAME_HOST_DIR}"
 
 fi
 
-# Symlink the host game path inside the wine prefix to preserve the installation on image deletion or update.
-
-if [ -d /opt/fs25/game/Farming\ Simulator\ 2025 ]; then
-        ln -s /opt/fs25/game/Farming\ Simulator\ 2025 ~/.fs25server/drive_c/Program\ Files\ \(x86\)/Farming\ Simulator\ 2025
-else
-        echo -e "${RED}Error: There is a problem... the host game directory does not exist, unable to create the symlink, the installation has failed!${NOCOLOR}"
-
-fi
-
-# Symlink the host config path inside the wine prefix to preserver the config files on image deletion or update.
-
-if [ -d ~/.fs25server/drive_c/users/$USER/Documents/My\ Games/FarmingSimulator2025 ]; then
-        echo -e "${GREEN}INFO: The symlink is already in place, no need to create one!${NOCOLOR}"
-else
-        mkdir -p ~/.fs25server/drive_c/users/$USER/Documents/My\ Games && ln -s /opt/fs25/config/FarmingSimulator2025 ~/.fs25server/drive_c/users/$USER/Documents/My\ Games/FarmingSimulator2025
-
-fi
+# Symlink persistent host paths into the Wine prefix so installs/logs survive rebuilds.
+ensure_symlink "${GAME_HOST_DIR}" "${WINE_GAME_DIR}"
+ensure_symlink "${CONFIG_HOST_DIR}" "${WINE_DOCS_DIR}"
 
 if [ -d ~/.fs25server/drive_c/users/$USER/Documents/My\ Games/FarmingSimulator2025/dedicated_server/logs ]; then
         echo -e "${GREEN}INFO: The log directories are in place!${NOCOLOR}"
@@ -157,12 +174,12 @@ fi
 if [ ! -f "$FS25_EXEC" ]; then
         echo -e "${GREEN}INFO: FarmingSimulator2025.exe does not exist. Checking available space...${NOCOLOR}"
 
-        # Get available free space in /opt/fs25 (in GB)
-        AVAILABLE_SPACE=$(df --output=avail /opt/fs25 | tail -1)
+        # Get available free space in ${FS25_BASE} (in GB)
+        AVAILABLE_SPACE=$(df --output=avail "${FS25_BASE}" | tail -1)
         AVAILABLE_SPACE=$((AVAILABLE_SPACE / 1024 / 1024)) # Convert KB to GB
 
         if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
-                echo -e "${RED}ERROR:Not enough free space in /opt/fs25. Required: $REQUIRED_SPACE GB, Available: $AVAILABLE_SPACE GB${NOCOLOR}"
+                echo -e "${RED}ERROR:Not enough free space in ${FS25_BASE}. Required: $REQUIRED_SPACE GB, Available: $AVAILABLE_SPACE GB${NOCOLOR}"
                 exit 1
         fi
 
@@ -260,9 +277,9 @@ fi
 if [ -f ~/.fs25server/drive_c/users/nobody/Documents/My\ Games/FarmingSimulator2025/pdlc/highlandsFishingPack.dlc ]; then
 	echo -e "${GREEN}INFO: Highlands Fishing Pack is already installed!${NOCOLOR}"
 else
-	if [ -f /opt/fs25/dlc/FarmingSimulator25_highlandsFishingPack*.exe ]; then
+	if ls "${DLC_DIR}"/${DLC_PREFIX}highlandsFishingPack*.exe >/dev/null 2>&1; then
 		echo -e "${GREEN}INFO: Installing Highlands Fishing Pack...!${NOCOLOR}"
-		for i in /opt/fs25/dlc/FarmingSimulator25_highlandsFishingPack*.exe; do wine "$i"; done
+		for i in "${DLC_DIR}"/${DLC_PREFIX}highlandsFishingPack*.exe; do wine "$i"; done
 		echo -e "${GREEN}INFO: Highlands Fishing Pack is now installed!${NOCOLOR}"
 	fi
 fi
@@ -273,7 +290,9 @@ echo -e "${YELLOW}INFO: Checking for updates, if you get warning about gpu drive
 wine ~/.fs25server/drive_c/Program\ Files\ \(x86\)/Farming\ Simulator\ 2025/FarmingSimulator2025.exe
 
 # Replace VERSION File after update / Create VERSION File after first Install -> fix Version to old error for Future DLCs
-cp /opt/fs25/game/Farming\ Simulator\ 2025/VERSION /opt/fs25/config/FarmingSimulator2025/
+if [ -f "${GAME_HOST_DIR}/VERSION" ]; then
+	cp "${GAME_HOST_DIR}/VERSION" "${CONFIG_HOST_DIR}/"
+fi
 
 # Check config if not exist exit
 
