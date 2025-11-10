@@ -3,23 +3,24 @@ services:
     image: toetje585/arch-fs25server:latest
     container_name: arch-fs25server
     environment:
-      - VNC_PASSWORD=fs25server
-      - PUID=1000
-      - PGID=1000
-      - WEB_USERNAME=fs25server
-      - WEB_PASSWORD=fs25server
-      - SERVER_NAME=FS25 Docker
-      - SERVER_PASSWORD=fs25server
-      - SERVER_ADMIN=fs25server
-      - SERVER_PLAYERS=16
-      - SERVER_PORT=10823
-      - SERVER_REGION=nl
-      - SERVER_DIFFICULTY=3
-      - SERVER_PAUSE=2
-      - SERVER_SAVE_INTERVAL=180.000000
-      - SERVER_STATS_INTERVAL=31536000
-      - SERVER_CROSSPLAY=true
-      - ENABLE_STARTUP_SCRIPTS=no
+      - VNC_PASSWORD=${VNC_PASSWORD:?Set VNC_PASSWORD (min 8 characters)}
+      - WEB_USERNAME=${WEB_USERNAME:-fs25admin}
+      - WEB_PASSWORD=${WEB_PASSWORD:?Set WEB_PASSWORD (min 8 characters)}
+      - SERVER_NAME=${SERVER_NAME:-FS25 Docker}
+      - SERVER_PASSWORD=${SERVER_PASSWORD:?Set SERVER_PASSWORD (min 8 characters)}
+      - SERVER_ADMIN=${SERVER_ADMIN:-farmadmin}
+      - SERVER_PLAYERS=${SERVER_PLAYERS:-16}
+      - SERVER_PORT=${SERVER_PORT:-10823}
+      - SERVER_REGION=${SERVER_REGION:-nl}
+      - SERVER_DIFFICULTY=${SERVER_DIFFICULTY:-3}
+      - SERVER_PAUSE=${SERVER_PAUSE:-2}
+      - SERVER_SAVE_INTERVAL=${SERVER_SAVE_INTERVAL:-180.000000}
+      - SERVER_STATS_INTERVAL=${SERVER_STATS_INTERVAL:-31536000}
+      - SERVER_CROSSPLAY=${SERVER_CROSSPLAY:-true}
+      - ENABLE_STARTUP_SCRIPTS=${ENABLE_STARTUP_SCRIPTS:-no}
+      - ENABLE_VNC=${ENABLE_VNC:-no}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /opt/fs25/config:/opt/fs25/config

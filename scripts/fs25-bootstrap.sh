@@ -24,6 +24,39 @@ log() {
   echo "${line}"
 }
 
+require_secret_value() {
+  local name="$1"
+  local value="$2"
+  local min_len="$3"
+  local disallowed="$4"
+  if [[ -z "${value}" ]]; then
+    log "Fatal: ${name} must be set and cannot be empty. Set ALLOW_DEFAULT_PASSWORDS=yes to bypass (not recommended)."
+    exit 1
+  fi
+  if [[ -n "${disallowed}" && "${value}" == "${disallowed}" ]]; then
+    log "Fatal: ${name} is still using the insecure default '${disallowed}'."
+    exit 1
+  fi
+  if (( min_len > 0 )) && ((${#value} < min_len)); then
+    log "Fatal: ${name} must be at least ${min_len} characters long."
+    exit 1
+  fi
+}
+
+enforce_required_credentials() {
+  local allow_defaults="${ALLOW_DEFAULT_PASSWORDS:-no}"
+  if [[ "${allow_defaults,,}" == "yes" ]]; then
+    log "ALLOW_DEFAULT_PASSWORDS=yes -> skipping credential enforcement."
+    return
+  fi
+  require_secret_value "VNC_PASSWORD" "${VNC_PASSWORD:-}" 8 "fs25server"
+  require_secret_value "WEB_PASSWORD" "${WEB_PASSWORD:-}" 8 "fs25server"
+  local allow_empty_server="${FS25_ALLOW_EMPTY_SERVER_PASSWORD:-no}"
+  if [[ "${allow_empty_server,,}" != "yes" ]]; then
+    require_secret_value "SERVER_PASSWORD" "${SERVER_PASSWORD:-}" 8 "fs25server"
+  fi
+}
+
 BASE_HOME="/home/container"
 if [[ ! -d "${BASE_HOME}" ]]; then
   BASE_HOME="/home/nobody"
@@ -426,6 +459,32 @@ prepare_init_wrapper() {
   patch_init_config "${INIT_WRAPPER}"
 }
 
+mask_upstream_secrets() {
+  local target="${INIT_WRAPPER}"
+  [[ -f "${target}" ]] || return
+  python3 - "${target}" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+data = path.read_text()
+patterns = [
+    (r"VNC_PASSWORD defined as '.*?'", "VNC_PASSWORD defined as '<hidden>'"),
+    (r"WEB_PASSWORD defined as '.*?'", "WEB_PASSWORD defined as '<hidden>'"),
+    (r"SERVER_PASSWORD defined as '.*?'", "SERVER_PASSWORD defined as '<hidden>'"),
+]
+
+new = data
+for pattern, replacement in patterns:
+    new = re.sub(pattern, replacement, new)
+
+if new != data:
+    path.write_text(new)
+PY
+  log "Patched init wrapper to mask sensitive password logs"
+}
+
 start_health_monitor() {
   local hc="/usr/local/bin/fs25-healthcheck.sh"
   if [[ ! -x "${hc}" ]]; then
@@ -589,6 +648,8 @@ auto_start_fs25() {
 }
 
 main() {
+  log_stage="enforce-credentials"
+  enforce_required_credentials
   log_stage="write-media-readme"
   write_media_readme
   log_stage="create-data-tree"
@@ -607,6 +668,8 @@ main() {
   install_path_shims
   log_stage="prepare-init-wrapper"
   prepare_init_wrapper
+  log_stage="mask-upstream-secrets"
+  mask_upstream_secrets
   log_stage="summarise-media"
   summarise_media_state
   log_stage="apply-web-config"

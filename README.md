@@ -14,6 +14,7 @@ This tree tracks the upstream work from the wine-gameservers maintainers and app
 - **Portal automation**: every `dedicatedServer*.xml` and desktop shortcut is patched to respect `WEB_PORT`. Uploaded branding in `fs-data/media/` is replicated into all Giants web templates as both `.png` and `.jpg`, even if the env vars are left blank (the script auto-picks `login.*`/`main.*`/`logo.*`). A background “logo enforcer” keeps Giants from overwriting those assets and rewrites `dedicatedServer.xml` if needed.
 - **Env-var bridge and secret masking**: Wings exposes `FS25_*` variables to dodge reserved names; the bootstrap maps them back to Giants’ `SERVER_*` vars. Logs now hide sensitive values and even patch the upstream `init.sh` banner so VNC/web passwords never print in plain text.
 - **Health + log helpers**: alongside the original supervisor stack, the egg ships a lightweight readiness probe (`fs25-healthcheck.sh`) that pings both the web UI and gameplay port, writing `FS25_HEALTHCHECK=PASS` when the service is ready. A log forwarder tails the Giants log into `/home/container/fs-data/config/...` so Wings’ console stays in sync.
+- **Security hardening**: the docker-compose file requires you to provide your own `VNC_PASSWORD`, `WEB_PASSWORD`, and `SERVER_PASSWORD`; the bootstrap enforces these values (unless you explicitly set `ALLOW_DEFAULT_PASSWORDS=yes`), TigerVNC is disabled by default and refuses to start unless the password is at least 8 characters, and the wrapped Binhex init script now masks any password log lines. Use `FS25_ALLOW_EMPTY_SERVER_PASSWORD=yes` only if you intentionally want an open server.
 
 Everything else—from the Arch image, wine setup, Supervisor configs, to the Giants desktop experience—remains the upstream team’s work. If you rely on this egg, please consider starring or contributing to the [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server) repository as thanks.
 
@@ -84,6 +85,28 @@ Please note that the Steam version of the game is not supported for running as a
 To obtain the full game and all DLCs, we recommend purchasing the Farming Simulator 25 - Year 1 Bundle. This edition provides access to all the content, and it is the most cost-effective option to unlock all the game's features. Please be cautious about other versions available, as this edition ensures the inclusion of all the content you need.
 
 - [Farming Simulator 25 - Year 1 Bundle](https://www.farming-simulator.com/buy-now.php?lang=en&country=us&platform=pcdigital)
+
+## Building the image
+
+If you need a custom build (for example to pin a specific upstream release, add your own branding, or host the image privately), you can compile it directly from this repository. The multi-stage `Dockerfile` pulls the upstream Arch base, installs the Binhex GUI dependencies, layers on `nss_wrapper`, and finally copies the scripts under `run/` and `scripts/`.
+
+1. Clone this fork (which contains the Pterodactyl-oriented patches) and move into it:
+   ```bash
+   git clone https://github.com/Newskin01/arch-fs25server.git
+   cd arch-fs25server
+   ```
+2. Run a build with your preferred metadata. Buildx is recommended so you can target linux/amd64 explicitly:
+   ```bash
+    docker buildx build \
+      --platform linux/amd64 \
+      --build-arg RELEASETAG="$(date +%Y%m%d)" \
+      --build-arg PATCH_ID="$(git rev-parse --short HEAD)" \
+      -t your-registry/arch-fs25server:custom .
+   ```
+   Optional args: set `FAST_INSTALL=no` if you want `pacman` to perform a full dependency sync, or `SKIP_FULL_UPGRADE=no` to force a system upgrade during the build.
+3. Push/tag as needed: `docker push your-registry/arch-fs25server:custom` or `docker load` if you built with `--output type=docker`.
+
+Please credit the upstream maintainers if you redistribute—this repo layers conveniences on top of their excellent base image.
 
 ## Deployment
 
@@ -232,6 +255,16 @@ The reccomended way to start the docker containers is using the tool docker comp
 
 Open it in some text editor of your choice.
 
+> **Security reminder:** The compose file now expects secrets to be sourced from your environment (or a `.env` file sitting next to `docker-compose.yml`). Before you run `docker compose up`, define at least `VNC_PASSWORD`, `WEB_PASSWORD`, and `SERVER_PASSWORD`, each with unique 8+ character strings:
+> ```bash
+> cat <<'EOF' > .env
+> VNC_PASSWORD=change-me-vnc
+> WEB_PASSWORD=change-me-web
+> SERVER_PASSWORD=change-me-game
+> EOF
+> ```
+> `docker compose` automatically loads `.env`, so you don’t have to pass the values inline.
+
 You'll find a tree structure. Under `services > arch-fs25server > mounts` you should find a list of directories. If you downloaded the file from here and put your game files into `/opt/fs25`, you're good to go.
 If you chose another directory, make shure you change the paths accordingly. If you downloaded the Instructions File and replaced the dir name, these entries should be fine:
 ```yaml
@@ -241,7 +274,7 @@ If you chose another directory, make shure you change the paths accordingly. If 
 - /mydir/fs25/dlc:/opt/fs25/dlc
 ```
 
-You'll need to set a few values under `services > arch-fs25server > as well`. The downloaded file should contain defaults. Change them according to your wishes. You'll find explanations in the Table [Environment variables](#environment-variables).
+You'll need to set a few values under `services > arch-fs25server` as well. The checked-in compose file deliberately contains **no** hard-coded secrets; instead it references `${VNC_PASSWORD}`, `${WEB_PASSWORD}`, `${SERVER_PASSWORD}`, etc. Populate those via `.env` or exported shell variables before running `docker compose up`. You'll find explanations in the Table [Environment variables](#environment-variables).
 
 ## Starting the container
 
@@ -260,7 +293,7 @@ The `-d` makes your containers run in the background, so they keep running if yo
 
 After starting the Docker container for the first time, you will need to go through the initial installation of the game and DLC using a VNC client. This will allow you to set up the game and install the necessary content within the Docker environment.
 
-This project includes a ready-to-go VNC Client, so you won't need to download anything. You need to know the port under which you'll be able to access VNC. If you didn't change it, it should be `6080`. If you are connected to your host via ssh, get your host's IP so you can access it. Otherwise, you can use `127.0.0.1` as your IP.
+This project includes a ready-to-go VNC Client, so you won't need to download anything. Because VNC exposes a full desktop, it is now **disabled by default**—set `ENABLE_VNC=yes` (and keep your 8+ character `VNC_PASSWORD` defined) before the first boot if you need the GUI installer. You need to know the port under which you'll be able to access VNC. If you didn't change it, it should be `6080`. If you are connected to your host via ssh, get your host's IP so you can access it. Otherwise, you can use `127.0.0.1` as your IP.
 
 Open `http://<ip>:<port>/vnc.html?resize=remote&host=<ip>&port=<port>&&autoconnect=1` in a browser of your choice, while replacing IP and Port with your values. Please nothe, that both of them occur twice! You'll be prompted for a password, which you set as environment variable `VNC_PASSWORD`.
 
@@ -275,12 +308,12 @@ Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/m
 
 | Name | Default | Purpose |
 |----------|----------|-------|
-| `VNC_PASSWORD` || Password for connecting using the vnc client |
+| `VNC_PASSWORD` | _required, min 8 chars_ | Password for connecting using the VNC client (only used when `ENABLE_VNC=yes`) |
 | `WEB_USERNAME` | `admin` | Username for admin portal at :7999 |
-| `WEB_PASSWORD' | `webpassword` | Password for the admin portal |
+| `WEB_PASSWORD` | _required, min 8 chars_ | Password for the admin portal |
 | `SERVER_NAME` || Servername that will be shown in the server browser |
 | `SERVER_PORT` | `10823` | Default: 10823, port that the server will listen on |
-| `SERVER_PASSWORD` || The game join password |
+| `SERVER_PASSWORD` | _required, min 8 chars_ | The game join password (set `FS25_ALLOW_EMPTY_SERVER_PASSWORD=yes` if you truly want it blank) |
 | `SERVER_ADMIN` || The server ingame admin password |
 | `SERVER_REGION` | `en` | en, de, jp, pl, cz, fr, es, ru, it, pt, hu, nl, cs, ct, br, tr, ro, kr, ea, da, fi, no, sv, fc |
 | `SERVER_PLAYERS` | `16` | Default: 16, amount of players allowed on the server |
@@ -290,6 +323,9 @@ Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/m
 | `SERVER_SAVE_INTERVAL` | `180.000000` | Default: 180.000000, in seconds.|
 | `SERVER_STATS_INTERVAL` | `31536000` | Default: 120.000000|
 | `SERVER_CROSSPLAY` | `true/false` | Default: true |
+| `ENABLE_VNC` | `no` | Set to `yes` when you need the TigerVNC/noVNC desktop; requires `VNC_PASSWORD` |
+| `ALLOW_DEFAULT_PASSWORDS` | `no` | Set to `yes` only for lab/testing to bypass the strong-password guard |
+| `FS25_ALLOW_EMPTY_SERVER_PASSWORD` | `no` | Set to `yes` if you intentionally want `SERVER_PASSWORD` unset |
 | `PUID` || PUID of username used on the local machine |
 | `GUID` || GUID of username used on the local machine |
 

@@ -18,27 +18,33 @@ prepare_x_sockets() {
 	find /tmp/.ICE-unix -type s -name 'ICE-unix-*' -delete 2>/dev/null || true
 }
 
+require_vnc_password() {
+	if [[ -z "${VNC_PASSWORD:-}" ]]; then
+		echo "[error] ENABLE_VNC requires VNC_PASSWORD to be set." >&2
+		return 1
+	fi
+	local password_length="${#VNC_PASSWORD}"
+	if [[ "${password_length}" -lt 8 ]]; then
+		echo "[error] ENABLE_VNC requires VNC_PASSWORD to be at least 8 characters long." >&2
+		return 1
+	fi
+	return 0
+}
+
 start_vnc_stack() {
 	prepare_x_sockets
+	if ! require_vnc_password; then
+		return 1
+	fi
 
 	# vnc start command
 	vnc_start="Xvnc :0 -depth 24"
 
 	# if a password is specified then generate password file in /home/nobody/.vnc/passwd
 	# else append insecure flag to command line
-	if [[ -n "${VNC_PASSWORD}" ]]; then
-		password_length="${#VNC_PASSWORD}"
-		if [[ "${password_length}" -gt 5 ]]; then
-			echo "[info] Password length OK, proceeding to set password..."
-			echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\nn" | vncpasswd 1>&- 2>&-
-			vnc_start="${vnc_start} -PasswordFile=${HOME}/.vnc/passwd"
-		else
-			echo "[warn] Password specified is less than 6 characters and thus will be ignored."
-			vnc_start="${vnc_start} -SecurityTypes=None"
-		fi
-	else
-		vnc_start="${vnc_start} -SecurityTypes=None"
-	fi
+	echo "[info] Configuring VNC password (length OK)."
+	echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\nn" | vncpasswd 1>&- 2>&-
+	vnc_start="${vnc_start} -PasswordFile=${HOME}/.vnc/passwd"
 
 	# if defined then set title for the web ui tab
 	if [[ -n "${WEBPAGE_TITLE}" ]]; then
@@ -77,10 +83,13 @@ start_vnc_stack() {
 # STARTCMD_PLACEHOLDER
 
 # optionally launch the desktop stack
-enable_vnc="${ENABLE_VNC:-yes}"
+enable_vnc="${ENABLE_VNC:-no}"
 case "${enable_vnc,,}" in
 	yes|true|1|on|"")
-		start_vnc_stack || echo "[warn] Failed to start VNC stack"
+		if ! start_vnc_stack; then
+			echo "[error] ENABLE_VNC=${enable_vnc} but the VNC stack could not start." >&2
+			exit 1
+		fi
 		;;
 	*)
 		echo "[info] ENABLE_VNC=${enable_vnc} -> skipping TigerVNC/novnc startup"
