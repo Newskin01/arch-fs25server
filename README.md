@@ -3,6 +3,20 @@
 Dedicated Farming Simulator 25 server running inside a docker image based on ArchLinux. 
 This project is hosted at https://github.com/wine-gameservers/arch-fs25server/
 
+## About This Fork
+
+This tree tracks the upstream work from the wine-gameservers maintainers and applies a thin layer of automation so the image can serve as the centerpiece of a Pterodactyl egg. Their original implementation provides the Arch base image, init scripts, supervisor stack, and overall Giants UI experience—none of the enhancements below would be possible without that foundation, so sincere thanks to the upstream authors for sharing it.
+
+### Pterodactyl-focused additions
+
+- **Persistent data hand-off**: the bootstrap now promotes `/home/container/fs-data` as the canonical storage root, migrates any stray `/opt/fs25` contents, and re-symlinks `/opt/fs25` on every boot. This keeps installs, configs, and saves intact across egg rebuilds.
+- **Media checklist / pending loop**: the bootstrap writes `FS25_MEDIA_README.txt`, tracks a `.media_pending` flag, and idles until `FarmingSimulator2025*.exe` appears. Operators can import the egg immediately and let large downloads finish later without restart loops.
+- **Portal automation**: every `dedicatedServer*.xml` and desktop shortcut is patched to respect `WEB_PORT`. Uploaded branding in `fs-data/media/` is replicated into all Giants web templates as both `.png` and `.jpg`, even if the env vars are left blank (the script auto-picks `login.*`/`main.*`/`logo.*`). A background “logo enforcer” keeps Giants from overwriting those assets and rewrites `dedicatedServer.xml` if needed.
+- **Env-var bridge and secret masking**: Wings exposes `FS25_*` variables to dodge reserved names; the bootstrap maps them back to Giants’ `SERVER_*` vars. Logs now hide sensitive values and even patch the upstream `init.sh` banner so VNC/web passwords never print in plain text.
+- **Health + log helpers**: alongside the original supervisor stack, the egg ships a lightweight readiness probe (`fs25-healthcheck.sh`) that pings both the web UI and gameplay port, writing `FS25_HEALTHCHECK=PASS` when the service is ready. A log forwarder tails the Giants log into `/home/container/fs-data/config/...` so Wings’ console stays in sync.
+
+Everything else—from the Arch image, wine setup, Supervisor configs, to the Giants desktop experience—remains the upstream team’s work. If you rely on this egg, please consider starring or contributing to the [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server) repository as thanks.
+
 ## Table of contents
 <!-- vim-markdown-toc GFM -->
 * [Motivation](#motivation)
