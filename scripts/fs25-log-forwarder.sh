@@ -16,7 +16,7 @@ start_tail() {
   local file="$1"
   local label="$2"
   touch "$file"
-  stdbuf -oL tail -n0 -F "$file" |
+  stdbuf -oL tail -n0 -F "$file" 2>/dev/null |
     while IFS= read -r line; do
       printf '[%s] %s\n' "${label}" "${line}"
     done &
@@ -34,7 +34,7 @@ while true; do
   if [[ -n "${new_file}" && "${new_file}" != "${current_dynamic}" ]]; then
     [[ -n "${dynamic_pid}" ]] && kill "${dynamic_pid}" >/dev/null 2>&1 || true
     label="$(basename "${new_file}")"
-    stdbuf -oL tail -n0 -F "${new_file}" |
+    stdbuf -oL tail -n0 -F "${new_file}" 2>/dev/null |
       while IFS= read -r line; do
         printf '[%s] %s\n' "${label}" "${line}"
       done &

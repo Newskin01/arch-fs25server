@@ -53,7 +53,12 @@ enforce_required_credentials() {
   require_secret_value "WEB_PASSWORD" "${WEB_PASSWORD:-}" 8 "fs25server"
   local allow_empty_server="${FS25_ALLOW_EMPTY_SERVER_PASSWORD:-no}"
   if [[ "${allow_empty_server,,}" != "yes" ]]; then
-    require_secret_value "SERVER_PASSWORD" "${SERVER_PASSWORD:-}" 8 "fs25server"
+    local server_password="${SERVER_PASSWORD:-${FS25_SERVER_PASSWORD:-}}"
+    if [[ -n "${server_password}" ]]; then
+      require_secret_value "SERVER_PASSWORD" "${server_password}" 8 "fs25server"
+    else
+      log "SERVER_PASSWORD not supplied via environment; skipping enforcement (set FS25_ALLOW_EMPTY_SERVER_PASSWORD=yes to silence this warning)."
+    fi
   fi
 }
 
