@@ -390,3 +390,6 @@ For questions specific to this fork, please open an issue or pull request in thi
 
 # Legal disclaimer
 This Docker container is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by [Giants Software](https://giants-software.com) and [Farming Simulator 25](https://farming-simulator.com/). The logo [Farming Simulator 25](https://giants-software.com) are © 2025 Giants Software.
+
+# License
+Code in this repository is licensed under the [MIT License](LICENSE). Contributions are accepted under the same terms. 
