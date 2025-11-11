@@ -547,6 +547,8 @@ sync_portal_logos() {
   local runtime_template="${RUNTIME_HOME}/.fs25server/drive_c/Program Files (x86)/Farming Simulator 2025/dedicated_server/webroot/template"
   local legacy_template="/home/nobody/.fs25server/drive_c/Program Files (x86)/Farming Simulator 2025/dedicated_server/webroot/template"
   local persistent_template="${DATA_ROOT}/game/Farming Simulator 2025/dedicated_server/webroot/template"
+  local config_template="${DATA_ROOT}/config/FarmingSimulator2025/dedicated_server/webroot/template"
+  local web_data_template="${DATA_ROOT}/game/Farming Simulator 2025/web_data/template"
 
   if [[ -n "${runtime_template}" ]]; then
     template_targets+=("${runtime_template}")
@@ -556,6 +558,12 @@ sync_portal_logos() {
   fi
   if [[ -n "${persistent_template}" ]]; then
     template_targets+=("${persistent_template}")
+  fi
+  if [[ -n "${config_template}" ]]; then
+    template_targets+=("${config_template}")
+  fi
+  if [[ -n "${web_data_template}" ]]; then
+    template_targets+=("${web_data_template}")
   fi
 
   if ((${#template_targets[@]} == 0)); then
@@ -586,10 +594,24 @@ sync_portal_logos() {
     local copied=0
     for target in "${template_targets[@]}"; do
       mkdir -p "${target}"
-      if cp -f "${src_path}" "${target}/${dest_file}"; then
+      local dest="${target}/${dest_file}"
+      if [[ -e "${dest}" ]]; then
+        local src_real dest_real
+        src_real=$(readlink -f "${src_path}" 2>/dev/null || echo "${src_path}")
+        dest_real=$(readlink -f "${dest}" 2>/dev/null || echo "${dest}")
+        if [[ "${src_real}" == "${dest_real}" ]]; then
+          copied=1
+          continue
+        fi
+        if cmp -s "${src_real}" "${dest_real}" 2>/dev/null; then
+          copied=1
+          continue
+        fi
+      fi
+      if cp -f "${src_path}" "${dest}"; then
         copied=1
       else
-        log "Failed to copy ${src_name} into ${target}/${dest_file}"
+        log "Failed to copy ${src_name} into ${dest}"
       fi
     done
     if ((copied)); then
