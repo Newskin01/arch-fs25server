@@ -389,4 +389,4 @@ Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/m
 For questions specific to this fork, please open an issue or pull request in this repository. For upstream changes or broader Farming Simulator tooling discussion, refer to the original [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server) project.
 
 # Legal disclaimer
-This Docker container is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by [Giants Software](https://giants-software.com) and [Farming Simulator 25](https://farming-simulator.com/). The logo [Farming Simulator 25](https://giants-software.com) are © 2024 Giants Software.
+This Docker container is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by [Giants Software](https://giants-software.com) and [Farming Simulator 25](https://farming-simulator.com/). The logo [Farming Simulator 25](https://giants-software.com) are © 2025 Giants Software.
