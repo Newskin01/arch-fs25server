@@ -1,13 +1,42 @@
 # Farming Simulator 25 Docker Server
 
 Dedicated Farming Simulator 25 server running inside a docker image based on ArchLinux. 
-This project is hosted at https://github.com/wine-gameservers/arch-fs25server/
+This fork now lives at https://github.com/Newskin01/arch-fs25server/ and traces its roots to https://github.com/wine-gameservers/arch-fs25server/.
 
 ## About This Fork
 
 This tree tracks the upstream work from the wine-gameservers maintainers and applies a thin layer of automation so the image can serve as the centerpiece of a Pterodactyl egg. Their original implementation provides the Arch base image, init scripts, supervisor stack, and overall Giants UI experience—none of the enhancements below would be possible without that foundation, so sincere thanks to the upstream authors for sharing it.
 
-### Pterodactyl-focused additions
+## Highlights
+
+- **Turn-key Pterodactyl experience** – `/home/container/fs-data` is treated as the single source of truth, the bootstrap migrates data automatically, and the egg ships health checks plus log-forwarding so Wings reads the right status.
+- **Automated web branding** – the portal logos and XML config are patched on boot, `fs-data/media` assets sync into every Giants template, and a watchdog keeps Giants from reverting uploads.
+- **Security guardrails** – strong password enforcement, optional VNC desktop, masked secrets, and helper flags such as `ALLOW_DEFAULT_PASSWORDS`, `ENABLE_VNC`, and `FS25_ALLOW_EMPTY_SERVER_PASSWORD` make intentions explicit.
+- **Repeatable builds** – every push to `main` runs the GitHub Actions workflow in `.github/workflows/build.yaml`, which publishes `ghcr.io/newskin01/arch-fs25server` images tagged `latest` and with the commit SHA.
+
+## Pre-built Images & CI
+
+GitHub Actions (via [`build.yaml`](.github/workflows/build.yaml)) builds and pushes the container with Buildx. Images land in [GHCR](https://ghcr.io) under the lowercase name `ghcr.io/newskin01/arch-fs25server`. Each run produces two tags:
+
+- `:latest` – tracks the tip of `main`.
+- `:<commit-sha>` – immutable tag for the workflow’s source revision.
+
+This repository contains the Docker image and bootstrap logic; the Pterodactyl egg (JSON, install script, healthchecks, and media checklist) lives in [Newskin01/pterodactyl-eggs](https://github.com/Newskin01/pterodactyl-eggs/tree/main/farming_simulator_25).
+
+Use them directly:
+
+```bash
+docker pull ghcr.io/newskin01/arch-fs25server:latest
+docker run --rm ghcr.io/newskin01/arch-fs25server:latest --help
+```
+
+The workflow also forwards `RELEASETAG=${{ github.ref_name }}` and `PATCH_ID=${{ github.run_number }}` into the build args so you can trace which automation produced a given image.
+
+## Support
+
+For questions or improvements specific to this fork, open an issue or pull request in [Newskin01/arch-fs25server](https://github.com/Newskin01/arch-fs25server). For upstream architectural questions or broader Farming Simulator tooling chat, refer to [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server).
+
+## Detailed additions
 
 - **Persistent data hand-off**: the bootstrap now promotes `/home/container/fs-data` as the canonical storage root, migrates any stray `/opt/fs25` contents, and re-symlinks `/opt/fs25` on every boot. This keeps installs, configs, and saves intact across egg rebuilds.
 - **Media checklist / pending loop**: the bootstrap writes `FS25_MEDIA_README.txt`, tracks a `.media_pending` flag, and idles until `FarmingSimulator2025*.exe` appears. Operators can import the egg immediately and let large downloads finish later without restart loops.
@@ -20,6 +49,10 @@ Everything else—from the Arch image, wine setup, Supervisor configs, to the Gi
 
 ## Table of contents
 <!-- vim-markdown-toc GFM -->
+* [Highlights](#highlights)
+* [Pre-built Images & CI](#pre-built-images--ci)
+* [Support](#support)
+* [Detailed additions](#detailed-additions)
 * [Motivation](#motivation)
 * [Getting Started](#getting-started)
 	* [Hardware Requirements](#hardware-requirements)
@@ -31,12 +64,12 @@ Everything else—from the Arch image, wine setup, Supervisor configs, to the Gi
 	* [Deploying with docker-compose](#docker-compose)
 	* [Deploying with docker run](#docker-run)
 * [Installation](#installation)
-	* [Initial installation](#initial-installation)
-		* [Downloading the dedicated server](#downloading-the-dedicated-server)
-		* [Preparing the needed directories on the host machine](#preparing-the-needed-directories-on-the-host-machine)
-		* [Unpack and move the installer](#unpack-and-move-the-installer)
-		* [Starting the container](#starting-the-container)
-		* [Connecting to the VNC Server](#connecting-to-the-vnc-Server)
+		* [Initial installation](#initial-installation)
+			* [Downloading the dedicated server](#downloading-the-dedicated-server)
+			* [Preparing the needed directories on the host machine](#preparing-the-needed-directories-on-the-host-machine)
+			* [Unpack and move the installer](#unpack-and-move-the-installer)
+			* [Starting the container](#starting-the-container)
+			* [Connecting to the VNC Server](#connecting-to-the-vnc-server)
 	* [Server Installation](#server-installation)
 		* [Running the installation](#running-the-installation)
 		* [Starting the admin portal](#starting-the-admin-portal)
@@ -53,7 +86,7 @@ While renting a server remains a viable option for certain players, it has becom
 
 # Getting Started
 
-Please note that this may not cover every possible scenario, particularly for NAS (synology) users. In such cases, you may need to utilize the provided admin console to configure the necessary directories and user permissions. If you encounter any issues while attempting to run the program, kindly refrain from sending me private messages. Instead, we recommend seeking assistance on our Discord server, where you can find additional support and guidance. [invite link to our Discord server](https://discord.gg/Ejz2MaXSNb). 
+Please note that this may not cover every possible scenario, particularly for NAS (synology) users. In such cases, you may need to utilize the provided admin console to configure the necessary directories and user permissions. If you encounter any issues while attempting to run the program, kindly open an issue in this repository so others can benefit from the discussion.
 
 ## Hardware Requirements
 
@@ -188,6 +221,20 @@ $ docker run -d \
 ```
 # Installation
 
+The published GHCR image already includes the bootstrap scripts, Media README workflow, and logo sync logic. In most cases you just need to:
+
+1. Pull the image: `docker pull ghcr.io/newskin01/arch-fs25server:latest`
+2. Provide the volumes from your host (see the compose snippet above or the Pterodactyl egg instructions in [Newskin01/pterodactyl-eggs](https://github.com/Newskin01/pterodactyl-eggs/tree/main/farming_simulator_25)).
+3. Set the required environment variables (`VNC_PASSWORD`, `WEB_PASSWORD`, `SERVER_PASSWORD`, etc.) either in your compose file, Helm values, or Pterodactyl egg.
+4. Start the container and watch the logs for the media checklist prompt.
+
+If you are deploying through Pterodactyl, follow the egg README in [Newskin01/pterodactyl-eggs](https://github.com/Newskin01/pterodactyl-eggs/tree/main/farming_simulator_25) for import instructions, required server variables, and the `FS25_MEDIA_README.txt` upload workflow.
+
+If you prefer the original hands-on installation instructions from upstream, keep reading—they are preserved below for reference.
+
+<details>
+<summary><strong>Legacy manual installation guide</strong></summary>
+
 ## Initial installation
 
 Before starting the Docker container, it is necessary to go through the initial configuration process. Unlike many other games that provide standalone server binaries, Farming Simulator does not offer this option. Instead, the required files are included in the digital download package. To obtain these files, you will need to download the full game (ZIP Version) and all DLC from the [Download Portal](https://eshop.giants-software.com/downloads.php).
@@ -302,6 +349,8 @@ It might happen, that the connection fails on first attempt. Go get a coffee and
 You should now see a desktop environment. Double Click 'Setup' to install FS25. You'll need your FS25 Serial Number now. Wait for the installation process to complete.
 After that, click 'Start Server'. This should spawn your game server and also open the web admin portal. You don't need to access it from your host, you can also navigate to `http://<ip>:7999` from another machine. The credentials are those you chose as `WEB_USERNAME` and `WEB_PASSWORD` in the `docker-compose.yml`.
 
+</details>
+
 # Environment variables
 
 Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/man1/id.1.html).
@@ -311,6 +360,8 @@ Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/m
 | `VNC_PASSWORD` | _required, min 8 chars_ | Password for connecting using the VNC client (only used when `ENABLE_VNC=yes`) |
 | `WEB_USERNAME` | `admin` | Username for admin portal at :7999 |
 | `WEB_PASSWORD` | _required, min 8 chars_ | Password for the admin portal |
+| `WEB_PORT` | `7999` | HTTP port used by the Giants web portal and patched shortcuts |
+| `WEB_SCHEME` | `http` | Set to `https` if you terminate TLS upstream and want the internal portal treated as secure |
 | `SERVER_NAME` || Servername that will be shown in the server browser |
 | `SERVER_PORT` | `10823` | Default: 10823, port that the server will listen on |
 | `SERVER_PASSWORD` | _required, min 8 chars_ | The game join password (set `FS25_ALLOW_EMPTY_SERVER_PASSWORD=yes` if you truly want it blank) |
@@ -326,14 +377,16 @@ Getting the PUID and GUID is explained [here](https://man7.org/linux/man-pages/m
 | `ENABLE_VNC` | `no` | Set to `yes` when you need the TigerVNC/noVNC desktop; requires `VNC_PASSWORD` |
 | `ALLOW_DEFAULT_PASSWORDS` | `no` | Set to `yes` only for lab/testing to bypass the strong-password guard |
 | `FS25_ALLOW_EMPTY_SERVER_PASSWORD` | `no` | Set to `yes` if you intentionally want `SERVER_PASSWORD` unset |
+| `LOGIN_LOGO` | _(auto-detect)_ | Absolute or relative path (within `/home/container/fs-data/media`) to the portal login logo |
+| `BOTTOM_LOGO` | _(auto-detect)_ | Absolute or relative path to the footer logo; defaults to the `main.*` assets if unset |
 | `PUID` || PUID of username used on the local machine |
 | `GUID` || GUID of username used on the local machine |
 
-# Discord
+> **Pterodactyl tip:** If your Wings install only exposes variables prefixed with `FS25_`, use `FS25_WEB_USERNAME`, `FS25_SERVER_PORT`, etc. The bootstrap automatically maps `FS25_*` back to their native counterparts before starting Giants.
 
-Need support or like to contribute towards our community you can try to join our Discord server.
+# Support
 
-https://discord.gg/Ejz2MaXSNb
+For questions specific to this fork, please open an issue or pull request in this repository. For upstream changes or broader Farming Simulator tooling discussion, refer to the original [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server) project.
 
 # Legal disclaimer
 This Docker container is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by [Giants Software](https://giants-software.com) and [Farming Simulator 25](https://farming-simulator.com/). The logo [Farming Simulator 25](https://giants-software.com) are © 2024 Giants Software.
