@@ -1,18 +1,18 @@
 # Farming Simulator 25 Docker Server
 
-Dedicated Farming Simulator 25 server running inside a docker image based on ArchLinux. 
+Dedicated Farming Simulator 25 server running inside a Docker image based on Arch Linux, ready for [Pterodactyl](https://pterodactyl.io) panels or standalone Docker hosts. Pull the latest build from [ghcr.io/newskin01/arch-fs25server:latest](https://ghcr.io/newskin01/arch-fs25server:latest) and pair it with the [Farming Simulator 25 Pterodactyl egg](https://github.com/Newskin01/pterodactyl-eggs/tree/main/farming_simulator_25) to bootstrap your Giants Software dedicated server quickly.
 This fork now lives at https://github.com/Newskin01/arch-fs25server/ and traces its roots to https://github.com/wine-gameservers/arch-fs25server/.
 
 ## About This Fork
 
 This tree tracks the upstream work from the wine-gameservers maintainers and applies a thin layer of automation so the image can serve as the centerpiece of a Pterodactyl egg. Their original implementation provides the Arch base image, init scripts, supervisor stack, and overall Giants UI experience—none of the enhancements below would be possible without that foundation, so sincere thanks to the upstream authors for sharing it.
 
-## Highlights
+## Farming Simulator 25 Highlights
 
-- **Turn-key Pterodactyl experience** – `/home/container/fs-data` is treated as the single source of truth, the bootstrap migrates data automatically, and the egg ships health checks plus log-forwarding so Wings reads the right status.
-- **Automated web branding** – the portal logos and XML config are patched on boot, `fs-data/media` assets sync into every Giants template, and a watchdog keeps Giants from reverting uploads.
-- **Security guardrails** – strong password enforcement, optional VNC desktop, masked secrets, and helper flags such as `ALLOW_DEFAULT_PASSWORDS`, `ENABLE_VNC`, and `FS25_ALLOW_EMPTY_SERVER_PASSWORD` make intentions explicit.
-- **Repeatable builds** – every push to `main` runs the GitHub Actions workflow in `.github/workflows/build.yaml`, which publishes `ghcr.io/newskin01/arch-fs25server` images tagged `latest` and with the commit SHA.
+1. **Turn-key Pterodactyl experience** – `/home/container/fs-data` is treated as the single source of truth, the bootstrap migrates data automatically, and the egg ships health checks plus log-forwarding so Wings reads the right status.
+2. **Automated web branding** – the portal logos and XML config are patched on boot, `fs-data/media` assets sync into every Giants template, and a watchdog keeps Giants from reverting uploads.
+3. **Security guardrails** – strong password enforcement, optional VNC desktop, masked secrets, and helper flags such as `ALLOW_DEFAULT_PASSWORDS`, `ENABLE_VNC`, and `FS25_ALLOW_EMPTY_SERVER_PASSWORD` make intentions explicit.
+4. **Repeatable builds** – every push to `main` runs the GitHub Actions workflow in `.github/workflows/build.yaml`, which publishes `ghcr.io/newskin01/arch-fs25server` images tagged `latest` and with the commit SHA.
 
 ## Pre-built Images & CI
 
@@ -36,6 +36,13 @@ The workflow also forwards `RELEASETAG=${{ github.ref_name }}` and `PATCH_ID=${{
 
 For questions or improvements specific to this fork, open an issue or pull request in [Newskin01/arch-fs25server](https://github.com/Newskin01/arch-fs25server). For upstream architectural questions or broader Farming Simulator tooling chat, refer to [wine-gameservers/arch-fs25server](https://github.com/wine-gameservers/arch-fs25server).
 
+## Compatibility
+
+- **Games & licenses**: Requires a valid [Farming Simulator 25](https://www.farming-simulator.com) dedicated server license tied to your [Giants Software](https://www.giants-software.com) account.
+- **Control panels**: Tested with [Pterodactyl 1.x](https://pterodactyl.io); import the [FS25 egg](https://github.com/Newskin01/pterodactyl-eggs/tree/main/farming_simulator_25) for best results.
+- **Container runtime**: Linux hosts with Docker 24+ or any runtime that supports OCI images and Buildx multi-platform layers.
+- **Architectures**: x86_64/amd64 (matching the upstream Arch Linux base image).
+
 ## Detailed additions
 
 - **Persistent data hand-off**: the bootstrap now promotes `/home/container/fs-data` as the canonical storage root, migrates any stray `/opt/fs25` contents, and re-symlinks `/opt/fs25` on every boot. This keeps installs, configs, and saves intact across egg rebuilds.
@@ -49,9 +56,10 @@ Everything else—from the Arch image, wine setup, Supervisor configs, to the Gi
 
 ## Table of contents
 <!-- vim-markdown-toc GFM -->
-* [Highlights](#highlights)
+* [Farming Simulator 25 Highlights](#farming-simulator-25-highlights)
 * [Pre-built Images & CI](#pre-built-images--ci)
 * [Support](#support)
+* [Compatibility](#compatibility)
 * [Detailed additions](#detailed-additions)
 * [Motivation](#motivation)
 * [Getting Started](#getting-started)
@@ -63,7 +71,7 @@ Everything else—from the Arch image, wine setup, Supervisor configs, to the Gi
 * [Deployment](#deployment)
 	* [Deploying with docker-compose](#docker-compose)
 	* [Deploying with docker run](#docker-run)
-* [Installation](#installation)
+	* [Install & Deployment Guide](#install--deployment-guide)
 		* [Initial installation](#initial-installation)
 			* [Downloading the dedicated server](#downloading-the-dedicated-server)
 			* [Preparing the needed directories on the host machine](#preparing-the-needed-directories-on-the-host-machine)
@@ -219,7 +227,7 @@ $ docker run -d \
     -e PGID=<PGID from user> \
     toetje585/arch-fs25server
 ```
-# Installation
+# Install & Deployment Guide
 
 The published GHCR image already includes the bootstrap scripts, Media README workflow, and logo sync logic. In most cases you just need to:
 
