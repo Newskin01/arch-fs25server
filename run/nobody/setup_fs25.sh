@@ -241,9 +241,19 @@ echo -e "${GREEN}INFO: Installing missing DLCs (if any)...${NOCOLOR}"
 
 if ((${#supported_names[@]})); then
   for dlc_name in "${supported_names[@]}"; do
-    if [ -f "${PDLC_DIR}/${dlc_name}.dlc" ]; then
-      # Already installed; skip
+    # Consider a DLC installed only if the license marker exists AND the game payload is present.
+    game_payload_present=0
+    mapfile -t game_payload_paths < <(compgen -G "${GAME_HOST_DIR}/pdlc/${dlc_name}"*)
+    if ((${#game_payload_paths[@]})); then
+      game_payload_present=1
+    fi
+
+    if [ -f "${PDLC_DIR}/${dlc_name}.dlc" ] && (( game_payload_present )); then
       continue
+    fi
+
+    if [ -f "${PDLC_DIR}/${dlc_name}.dlc" ] && (( ! game_payload_present )); then
+      echo -e "${YELLOW}INFO: ${dlc_name} license exists but game files are missing; reinstalling.${NOCOLOR}"
     fi
 
     # Install missing DLC
@@ -263,10 +273,16 @@ if ((${#supported_names[@]})); then
     fi
 
     # Verify installation
-    if [ -f "${PDLC_DIR}/${dlc_name}.dlc" ]; then
+    mapfile -t game_payload_paths < <(compgen -G "${GAME_HOST_DIR}/pdlc/${dlc_name}"*)
+    game_payload_present=0
+    if ((${#game_payload_paths[@]})); then
+      game_payload_present=1
+    fi
+
+    if [ -f "${PDLC_DIR}/${dlc_name}.dlc" ] && (( game_payload_present )); then
       echo -e "${GREEN}INFO: ${dlc_name} is now installed!${NOCOLOR}"
     else
-      echo -e "${YELLOW}WARNING: ${dlc_name} installer ran, but didnt install the DLC. ${NOCOLOR}" #but ${dlc_name}.dlc not found yet.
+      echo -e "${YELLOW}WARNING: ${dlc_name} installer ran, but game files or license are still missing.${NOCOLOR}"
     fi
   done
 else
