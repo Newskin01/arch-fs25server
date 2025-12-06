@@ -297,9 +297,18 @@ function symlink() {
 
 	# create soft link to ${src_path}/${folder} storing general settings
 	logger "Creating '${link_type}' from '${dst_path}' to '${src_path}'..." "INFO"
-	if ! stderr=$(mkdir -p "${dst_path}" 2>&1 >/dev/null); then
-		logger "Unable to mkdir '${dst_path}' error is '${stderr}', exiting function..." "ERROR"
-		return 1
+	# if dst_path exists but is not a directory (e.g., a file/symlink), remove it so mkdir -p succeeds
+	if [[ -e "${dst_path}" && ! -d "${dst_path}" ]]; then
+		if ! stderr=$(rm -f "${dst_path}" 2>&1 >/dev/null); then
+			logger "Unable to remove existing path '${dst_path}' error is '${stderr}', exiting function..." "ERROR"
+			return 1
+		fi
+	fi
+	if [[ ! -d "${dst_path}" ]]; then
+		if ! stderr=$(mkdir -p "${dst_path}" 2>&1 >/dev/null); then
+			logger "Unable to mkdir '${dst_path}' error is '${stderr}', exiting function..." "ERROR"
+			return 1
+		fi
 	fi
 	if ! stderr=$(rm -rf "${src_path}" 2>&1 >/dev/null); then
 		logger "Unable to recursively delete path '${src_path}' error is '${stderr}', exiting function..." "ERROR"
