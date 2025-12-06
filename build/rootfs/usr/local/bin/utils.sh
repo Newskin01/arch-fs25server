@@ -319,8 +319,12 @@ function symlink() {
 		return 1
 	fi
 	if [[ -n "${PUID}" && -n "${PGID}" ]]; then
-		# reset permissions after file copy
-		chown -R "${PUID}":"${PGID}" "${dst_path}" "${src_path}"
+		# reset permissions after file copy (only if running as root)
+		if [[ $(id -u) -eq 0 ]]; then
+			chown -R "${PUID}":"${PGID}" "${dst_path}" "${src_path}"
+		else
+			logger "Skipping chown of '${dst_path}' and '${src_path}' (not running as root)" "INFO"
+		fi
 	fi
 }
 
