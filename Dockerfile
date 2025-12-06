@@ -58,9 +58,6 @@ ADD config/nobody/ /home/nobody/.build/
 
 COPY build/rootfs /
 
-# seed upstream init script that Binhex normally provides
-COPY --from=upstream /usr/local/bin/init.sh /usr/local/bin/init.sh
-
 # install app
 #############
 
@@ -70,7 +67,7 @@ COPY --from=nss_builder /opt/nss-wrapper/usr /usr
 # make executable and run bash scripts to install app
 RUN chmod +x /root/*.sh && \
 	/bin/bash /root/install.sh "${RELEASETAG}" "${TARGETARCH}" && \
-	chmod +x /usr/local/bin/fs25-bootstrap.sh /usr/local/bin/fs25-healthcheck.sh /usr/local/bin/init.sh /usr/local/bin/ts /usr/local/bin/symlink
+	chmod +x /usr/local/bin/fs25-bootstrap.sh /usr/local/bin/fs25-healthcheck.sh /usr/local/bin/init.sh /usr/local/bin/ts /usr/local/bin/symlink /usr/local/bin/utils.sh
 
 # docker settings
 #################
