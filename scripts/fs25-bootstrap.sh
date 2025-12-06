@@ -104,7 +104,16 @@ chmod 775 "${DATA_ROOT}" "${SCRIPT_ROOT}" "${LOG_ROOT}"
 mkdir -p "${BIN_ROOT}"
 rm -f "${BIN_ROOT}/dbus-launch" "${BIN_ROOT}/dbus-update-activation-environment"
 
-mkdir -p "${CONFIG_ROOT}" "${RUNTIME_HOME}"
+ensure_dir() {
+  local dir="$1"
+  if [[ -e "${dir}" && ! -d "${dir}" ]]; then
+    rm -f "${dir}"
+  fi
+  mkdir -p "${dir}"
+}
+
+ensure_dir "${CONFIG_ROOT}"
+ensure_dir "${RUNTIME_HOME}"
 mkdir -p "${SUPERVISOR_TARGET}"
 cp -r "${SUPERVISOR_SOURCE}/." "${SUPERVISOR_TARGET}/"
 
